@@ -1,8 +1,8 @@
 var a_canvas = document.getElementById("a");
 var ctx = a_canvas.getContext("2d");
-var imagewidth = a_canvas.width;
-var imageheight = a_canvas.height;
-var numshapes = 300;
+var IMAGE_WIDTH = a_canvas.width;
+var IMAGE_HEIGHT = a_canvas.height;
+var NUM_SHAPES = 300;
 var shapesLibrary = ['circle', 4, 6, 8]
 var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
 
@@ -24,48 +24,50 @@ function distanceSquared(a, b) {
   return Math.pow((a.x - b.x), 2) + Math.pow((a.y - b.y), 2)
 }
 
-function shapeObject(x, y, radius, shape, color) {
+function ShapeObject(x, y, radius, shape, color) {
   this.x = x;
   this.y = y;
   this.radius = radius;
   this.shape = shape;
   this.color = color;
   this.points = []
+  this.draw = function (ctx) {
+    ctx.fillStyle = this.color;
+    if (this.shape == 'circle'){
+      this.points[0] = this.radius;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI);
+      ctx.closePath();
+      ctx.fill();
+    } else if (typeof this.shape == 'number'){
+      pointList = regularPolygon(this.x, this.y, this.shape, this.radius, Math.random()*2*Math.PI);
+      xlist = pointList[0];
+      ylist = pointList[1];
+      ctx.beginPath();
+      ctx.moveTo(xlist[0], ylist[0]);
+      this.points[0] = [xlist[0], ylist[0]];
+      for (i = 1; i<this.shape; i++){
+        ctx.lineTo(xlist[i], ylist[i]);
+        this.points[i] = [xlist[i], ylist[i]];
+      }
+      ctx.fill();
+    }
+  }
 }
 
 //generate the shape objects
 var shapes = [];
-for (i = 0; i < numshapes; i++) {
+for (i = 0; i < NUM_SHAPES; i++) {
   ind = randint(0, 3);
   shp = shapesLibrary[ind];
   clr = colorsLibrary[ind];
-  shapes.push(new shapeObject(randint(0, imagewidth), randint(0, imageheight), 30, shp, clr));
+  shapes.push(new ShapeObject(randint(0, IMAGE_WIDTH), randint(0, IMAGE_HEIGHT), 30, shp, clr));
 }
 
 //draw the shapes
 for (i in shapes){
   var s = shapes[i];
-  ctx.fillStyle = s.color;
-  if (s.shape == 'circle'){
-    s.points[0] = s.radius;
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.radius, 0, 2*Math.PI);
-    ctx.closePath();
-    ctx.fill();
-  } else if (typeof s.shape == 'number'){
-    pointList = regularPolygon(s.x, s.y, s.shape, s.radius, Math.random()*2*Math.PI);
-    xlist = pointList[0];
-    ylist = pointList[1];
-    ctx.beginPath();
-    ctx.moveTo(xlist[0], ylist[0]);
-    s.points[0] = [xlist[0], ylist[0]];
-    for (i = 1; i<s.shape; i++){
-      ctx.lineTo(xlist[i], ylist[i]);
-      s.points[i] = [xlist[i], ylist[i]];
-    }
-    ctx.fill();
-  }
-  //console.log(s.points);
+  s.draw(ctx);
 }
 
 function spaceFitness(set){
