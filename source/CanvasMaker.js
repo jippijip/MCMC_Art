@@ -1,11 +1,3 @@
-var a_canvas = document.getElementById("a");
-var ctx = a_canvas.getContext("2d");
-var IMAGE_WIDTH = a_canvas.width;
-var IMAGE_HEIGHT = a_canvas.height;
-var NUM_SHAPES = 300;
-var shapesLibrary = ['circle', 4, 6, 8]
-var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
-
 function randint(low, high) {
   return Math.floor(Math.random() * (high - low + 1)) + low;
 }
@@ -24,13 +16,14 @@ function distanceSquared(a, b) {
   return Math.pow((a.x - b.x), 2) + Math.pow((a.y - b.y), 2)
 }
 
-function ShapeObject(x, y, radius, shape, color) {
+function Shape(x, y, radius, shape, color) {
   this.x = x;
   this.y = y;
   this.radius = radius;
   this.shape = shape;
   this.color = color;
   this.points = []
+
   this.draw = function (ctx) {
     ctx.fillStyle = this.color;
     if (this.shape == 'circle'){
@@ -55,32 +48,69 @@ function ShapeObject(x, y, radius, shape, color) {
   }
 }
 
-//generate the shape objects
-var shapes = [];
-for (i = 0; i < NUM_SHAPES; i++) {
-  ind = randint(0, 3);
-  shp = shapesLibrary[ind];
-  clr = colorsLibrary[ind];
-  shapes.push(new ShapeObject(randint(0, IMAGE_WIDTH), randint(0, IMAGE_HEIGHT), 30, shp, clr));
-}
-
-//draw the shapes
-for (i in shapes){
-  var s = shapes[i];
-  s.draw(ctx);
-}
-
-function spaceFitness(set){
-  var sum = 0;
-  for (i=0; i<set.length; i++){
-    for (j=i+1; j<set.length; j++){
-      sum += distanceSquared(set[i], set[j]);
+function Painting(shapes){
+  this.shapes = shapes;
+  this.draw = function(ctx){
+    for (i in this.shapes) {
+      var s = this.shapes[i];
+      s.draw(ctx);
     }
   }
-  numConnections = set.length*(set.length-1)/2
+}
+
+/**
+ * Generate a painting.
+ */
+function generatePainting(num, width, height, radius, shapesLibrary, colorsLibrary) {
+  var shapeList = []
+  for (i = 0; i < num; i++) {
+    ind = randint(0, 3);
+    shp = shapesLibrary[ind];
+    clr = colorsLibrary[ind];
+    shapeList.push(new Shape(randint(0, width), randint(0, height), radius, shp, clr));
+  }
+  return shapeList;
+}
+
+function spaceFitness(painting){
+  shapes = painting.shapes;
+  var sum = 0;
+  for (i=0; i<shapes.length; i++){
+    for (j=i+1; j<shapes.length; j++){
+      sum += distanceSquared(shapes[i], shapes[j]);
+    }
+  }
+  numConnections = shapes.length*(shapes.length-1)/2
   console.log(numConnections);
   var avgDist = sum/numConnections;
   return avgDist;
 }
 
-console.log(spaceFitness(shapes))
+function main() {
+  var a_canvas = document.getElementById("a");
+  var ctx = a_canvas.getContext("2d");
+  var IMAGE_WIDTH = a_canvas.width;
+  var IMAGE_HEIGHT = a_canvas.height;
+  var NUM_SHAPES = 300;
+  var NUM_TRIALS = 100;
+  var shapesLibrary = ['circle', 4, 6, 8]
+  var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
+  var fitnessArray = [];
+  var population = [];
+
+  /**
+   * Generate a population of paintings.
+   */
+  for (trial=0; trial<NUM_TRIALS; trial++){
+    var painting = new Painting(generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary));
+    population[trial] = painting;
+    fitnessArray[trial] = spaceFitness(painting);
+    if (trial==NUM_TRIALS-1) {
+      painting.draw(ctx);
+    }
+  }
+  console.log(population);
+  console.log(fitnessArray);
+}
+
+main();
