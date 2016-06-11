@@ -13,7 +13,26 @@ function regularPolygon(x, y, n, rad, rot) {
 }
 
 function distanceSquared(a, b) {
-  return Math.pow((a.x - b.x), 2) + Math.pow((a.y - b.y), 2)
+  return (a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y);
+}
+
+function avgKernelDensity(painting){
+
+  function singleKernelDensity(reference, set) {
+    var sum = -1;
+    for (j=0; j<set.length; j++) {
+      sum += Math.exp(-distanceSquared(reference, set[j]) / 2000);
+    }
+    return sum;
+  }
+
+  var total = 0;
+  shapes = painting.shapes;
+  for (i=0; i<shapes.length; i++) {
+    total += singleKernelDensity(shapes[i], shapes);
+  }
+  avg = total / shapes.length;
+  return avg;
 }
 
 function Shape(x, y, radius, shape, color) {
@@ -58,9 +77,6 @@ function Painting(shapes){
   }
 }
 
-/**
- * Generate a painting.
- */
 function generatePainting(num, width, height, radius, shapesLibrary, colorsLibrary) {
   var shapeList = []
   for (i = 0; i < num; i++) {
@@ -81,7 +97,6 @@ function spaceFitness(painting){
     }
   }
   numConnections = shapes.length*(shapes.length-1)/2
-  console.log(numConnections);
   var avgDist = sum/numConnections;
   return avgDist;
 }
@@ -109,8 +124,8 @@ function main() {
       painting.draw(ctx);
     }
   }
-  console.log(population);
-  console.log(fitnessArray);
+
+  console.log(avgKernelDensity(painting));
 }
 
 main();
