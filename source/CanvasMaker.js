@@ -142,22 +142,24 @@ function twiddleAll(painting, aggressiveness){
   return newPainting;
 }
 
+var NUM_SHAPES = 100;
+var NUM_TRIALS = 100;
+var BETA = 600;
+
 function init() {
   var canvas = document.getElementById("canvas");
   var ctx = canvas.getContext("2d");
-  var IMAGE_WIDTH = canvas.width;
-  var IMAGE_HEIGHT = canvas.height;
-  var NUM_SHAPES = 100;
-  var NUM_TRIALS = 100;
   var shapesLibrary = ['circle', 4, 6, 8]
   var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
   var fitnessArray = [];
   var population = [];
-  var painting = generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary);
+  var painting = generatePainting(NUM_SHAPES, canvas.width, canvas.height, 30, shapesLibrary, colorsLibrary);
+  var initialError = avgKernelDensity(painting);
+  var initialDensity = Math.exp(- BETA * initialError);
   timer1 = setInterval(doIteration, 1);
   timer2 = setInterval(showProgress, 500);
   painting.draw(ctx);
-  return {canvas:canvas, ctx:ctx, painting:painting, currentDensity:avgKernelDensity(painting)};
+  return {canvas:canvas, ctx:ctx, painting:painting, currentDensity:initialDensity};
 }
   /**
    * Generate a population of paintings.
@@ -173,16 +175,16 @@ function init() {
 var globals = init();
 
 function doIteration(){
-  var beta = 2000;
   newPainting = twiddle(globals.painting, 10);
-  var newDensity = avgKernelDensity(newPainting)
-  if (newDensity < globals.currentDensity){
+  var newError = avgKernelDensity(newPainting)
+  var newDensity = Math.exp(- BETA * newError);
+  if (newDensity >= globals.currentDensity){
     // console.log(avgKernelDensity(newPainting));
     globals.painting = newPainting;
     globals.currentDensity = newDensity;
-    console.log('ACCEPTED', Math.exp(- beta * newDensity));
+    console.log('ACCEPTED', newDensity);
   } else {
-    acceptanceRatio = Math.exp(-beta * (newDensity - globals.currentDensity));
+    acceptanceRatio = newDensity/globals.currentDensity;
     console.log(acceptanceRatio);
     test = Math.random();
     if (test < acceptanceRatio){
