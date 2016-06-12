@@ -35,16 +35,17 @@ function avgKernelDensity(painting){
   return avg;
 }
 
-function Shape(x, y, radius, shape, color) {
+function Shape(x, y, theta, radius, shape, color) {
   this.x = x;
   this.y = y;
+  this.theta = theta;
   this.radius = radius;
   this.shape = shape;
   this.color = color;
   this.points = []
 
   this.clone = function() {
-    clone = new Shape(this.x, this.y, this.radius, this.shape, this.color);
+    clone = new Shape(this.x, this.y, this.theta, this.radius, this.shape, this.color);
     return clone;
   }
 
@@ -57,7 +58,7 @@ function Shape(x, y, radius, shape, color) {
       ctx.closePath();
       ctx.fill();
     } else if (typeof this.shape == 'number'){
-      pointList = regularPolygon(this.x, this.y, this.shape, this.radius, Math.random()*2*Math.PI);
+      pointList = regularPolygon(this.x, this.y, this.shape, this.radius, this.theta);
       xlist = pointList[0];
       ylist = pointList[1];
       ctx.beginPath();
@@ -97,7 +98,8 @@ function generatePainting(num, width, height, radius, shapesLibrary, colorsLibra
     ind = randint(0, 3);
     shp = shapesLibrary[ind];
     clr = colorsLibrary[ind];
-    shapeList.push(new Shape(randint(0, width), randint(0, height), radius, shp, clr));
+    shapeList.push(new Shape(randint(0, width), randint(0, height),
+        Math.random()*2*Math.PI, radius, shp, clr));
   }
   return new Painting(shapeList);
 }
@@ -152,9 +154,10 @@ function init() {
   var fitnessArray = [];
   var population = [];
   var painting = generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary);
-  timer = setInterval(doIteration, 1);
+  timer1 = setInterval(doIteration, 1);
+  timer2 = setInterval(showProgress, 500);
   painting.draw(ctx);
-  return {canvas:canvas, ctx:ctx, painting:painting};
+  return {canvas:canvas, ctx:ctx, painting:painting, currentDensity:avgKernelDensity(painting)};
 }
   /**
    * Generate a population of paintings.
@@ -170,16 +173,26 @@ function init() {
 var globals = init();
 
 function doIteration(){
-    newPainting = twiddle(globals.painting, 10);
-    //console.log(newPainting.shapes);
-    //console.log(avgKernelDensity(newPainting), avgKernelDensity(painting));
-    //console.log(avgKernelDensity(newPainting) < avgKernelDensity(painting));
-    if (avgKernelDensity(newPainting) < avgKernelDensity(globals.painting)){
-      console.log(avgKernelDensity(newPainting));
+  var beta = 2000;
+  newPainting = twiddle(globals.painting, 10);
+  var newDensity = avgKernelDensity(newPainting)
+  if (newDensity < globals.currentDensity){
+    // console.log(avgKernelDensity(newPainting));
+    globals.painting = newPainting;
+    globals.currentDensity = newDensity;
+    console.log('ACCEPTED', Math.exp(- beta * newDensity));
+  } else {
+    acceptanceRatio = Math.exp(-beta * (newDensity - globals.currentDensity));
+    console.log(acceptanceRatio);
+    test = Math.random();
+    if (test < acceptanceRatio){
       globals.painting = newPainting;
-      globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);
-      globals.painting.draw(globals.ctx);
+      globals.currentDensity = newDensity;
+    }
     }
   }
-
+function showProgress(){
+    globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);
+    globals.painting.draw(globals.ctx);
+  }
 doIteration();
