@@ -43,6 +43,11 @@ function Shape(x, y, radius, shape, color) {
   this.color = color;
   this.points = []
 
+  this.clone = function() {
+    clone = new Shape(this.x, this.y, this.radius, this.shape, this.color);
+    return clone;
+  }
+
   this.draw = function (ctx) {
     ctx.fillStyle = this.color;
     if (this.shape == 'circle'){
@@ -75,6 +80,15 @@ function Painting(shapes){
       s.draw(ctx);
     }
   }
+
+  this.clone = function(){
+    var cloneShapes = [];
+    for (i=0; i<this.shapes.length; i++){
+      cloneShapes[i] = this.shapes[i].clone();
+    }
+    clone = new Painting(cloneShapes);
+    return clone;
+  }
 }
 
 function generatePainting(num, width, height, radius, shapesLibrary, colorsLibrary) {
@@ -101,31 +115,62 @@ function spaceFitness(painting){
   return avgDist;
 }
 
+function twiddle(painting, aggressiveness){
+  newPainting = painting.clone();
+  shapes = newPainting.shapes;
+  for (i=0; i<shapes.length; i++){
+    //eventually make this Gaussian!
+    shp = shapes[i]
+    shp.x += (Math.random()-0.5)*aggressiveness*2;
+    shp.y += (Math.random()-0.5)*aggressiveness*2;
+  }
+  newPainting.shapes = shapes;
+  return newPainting;
+}
+
 function main() {
-  var a_canvas = document.getElementById("a");
-  var ctx = a_canvas.getContext("2d");
-  var IMAGE_WIDTH = a_canvas.width;
-  var IMAGE_HEIGHT = a_canvas.height;
+  var canvas = document.getElementById("a");
+  var ctx = canvas.getContext("2d");
+  var IMAGE_WIDTH = canvas.width;
+  var IMAGE_HEIGHT = canvas.height;
   var NUM_SHAPES = 300;
   var NUM_TRIALS = 100;
   var shapesLibrary = ['circle', 4, 6, 8]
   var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
   var fitnessArray = [];
   var population = [];
-
   /**
    * Generate a population of paintings.
    */
-  for (trial=0; trial<NUM_TRIALS; trial++){
-    var painting = new Painting(generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary));
-    population[trial] = painting;
-    fitnessArray[trial] = spaceFitness(painting);
-    if (trial==NUM_TRIALS-1) {
+  // for (trial=0; trial<NUM_TRIALS; trial++){
+  //   var painting = new Painting(generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary));
+  //   population[trial] = painting;
+  //   fitnessArray[trial] = spaceFitness(painting);
+  //   if (trial==NUM_TRIALS-1) {
+  //     painting.draw(ctx);
+  //   }
+  // }
+
+  var painting = new Painting(generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary));
+  painting.draw(ctx);
+  for(k=0; k<5000; k++){
+    oldShapes = painting.shapes;
+    newPainting = twiddle(painting, 10);
+    //console.log(newPainting.shapes);
+    //console.log(avgKernelDensity(newPainting), avgKernelDensity(painting));
+    //console.log(avgKernelDensity(newPainting) < avgKernelDensity(painting));
+    if (avgKernelDensity(newPainting) < avgKernelDensity(painting)){
+      console.log(k, avgKernelDensity(newPainting));
+      painting = newPainting;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       painting.draw(ctx);
     }
   }
 
-  console.log(avgKernelDensity(painting));
+  // for (i=0; i<20; i++){
+  //   painting = twiddle(painting, 10);
+  //   painting.draw(ctx);
+  // }
 }
 
 main();
