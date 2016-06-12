@@ -119,32 +119,33 @@ function spaceFitness(painting){
 
 function twiddle(painting, aggressiveness){
   newPainting = painting.clone();
-  shapes = newPainting.shapes;
   var i = randint(0, shapes.length-1);
   // TODO(thomas): eventually make this Gaussian!
   shp = newPainting.shapes[i];
-  shp.x += (Math.random()-0.5)*aggressiveness*2;
-  shp.y += (Math.random()-0.5)*aggressiveness*2;
-  //newPainting.shapes = shapes;
-  return newPainting;
-}
-
-function twiddleAll(painting, aggressiveness){
-  newPainting = painting.clone();
-  shapes = newPainting.shapes;
-  for (i=0; i<shapes.length; i++){
-    // TODO(thomas): eventually make this Gaussian!
-    shp = shapes[i];
-    shp.x += (Math.random()-0.5)*aggressiveness*2;
-    shp.y += (Math.random()-0.5)*aggressiveness*2;
+  var xShift = (Math.random()-0.5)*aggressiveness*2;
+  var yShift = (Math.random()-0.5)*aggressiveness*2;
+  if (shp.x + xShift < BORDER){
+    shp.x = BORDER;
+  } else if (shp.x + xShift > globals.canvas.width - BORDER){
+    shp.x = globals.canvas.width - BORDER;
+  } else {
+    shp.x += xShift;
   }
-  newPainting.shapes = shapes;
+  if (shp.y + yShift < BORDER){
+    shp.y = BORDER;
+  } else if (shp.y + yShift > globals.canvas.height - BORDER){
+    shp.y = globals.canvas.height - BORDER;
+  } else {
+    shp.y += yShift;
+  }
   return newPainting;
 }
 
 var NUM_SHAPES = 100;
 var NUM_TRIALS = 100;
-var BETA = 600;
+var BETA = 700;
+var RADIUS = 30;
+var BORDER = 1.5 * RADIUS;
 
 function init() {
   var canvas = document.getElementById("canvas");
@@ -153,11 +154,11 @@ function init() {
   var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
   var fitnessArray = [];
   var population = [];
-  var painting = generatePainting(NUM_SHAPES, canvas.width, canvas.height, 30, shapesLibrary, colorsLibrary);
+  var painting = generatePainting(NUM_SHAPES, canvas.width, canvas.height, RADIUS, shapesLibrary, colorsLibrary);
   var initialError = avgKernelDensity(painting);
   var initialDensity = Math.exp(- BETA * initialError);
   timer1 = setInterval(doIteration, 1);
-  timer2 = setInterval(showProgress, 500);
+  timer2 = setInterval(showProgress, 100);
   painting.draw(ctx);
   return {canvas:canvas, ctx:ctx, painting:painting, currentDensity:initialDensity};
 }
