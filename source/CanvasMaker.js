@@ -118,9 +118,21 @@ function spaceFitness(painting){
 function twiddle(painting, aggressiveness){
   newPainting = painting.clone();
   shapes = newPainting.shapes;
+  var i = randint(0, shapes.length-1);
+  // TODO(thomas): eventually make this Gaussian!
+  shp = newPainting.shapes[i];
+  shp.x += (Math.random()-0.5)*aggressiveness*2;
+  shp.y += (Math.random()-0.5)*aggressiveness*2;
+  //newPainting.shapes = shapes;
+  return newPainting;
+}
+
+function twiddleAll(painting, aggressiveness){
+  newPainting = painting.clone();
+  shapes = newPainting.shapes;
   for (i=0; i<shapes.length; i++){
     // TODO(thomas): eventually make this Gaussian!
-    shp = shapes[i]
+    shp = shapes[i];
     shp.x += (Math.random()-0.5)*aggressiveness*2;
     shp.y += (Math.random()-0.5)*aggressiveness*2;
   }
@@ -133,14 +145,14 @@ function init() {
   var ctx = canvas.getContext("2d");
   var IMAGE_WIDTH = canvas.width;
   var IMAGE_HEIGHT = canvas.height;
-  var NUM_SHAPES = 300;
+  var NUM_SHAPES = 100;
   var NUM_TRIALS = 100;
   var shapesLibrary = ['circle', 4, 6, 8]
   var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
   var fitnessArray = [];
   var population = [];
   var painting = generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary);
-  timer = setInterval(doIteration, 10);
+  timer = setInterval(doIteration, 1);
   painting.draw(ctx);
   return {canvas:canvas, ctx:ctx, painting:painting};
 }
