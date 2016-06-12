@@ -99,7 +99,7 @@ function generatePainting(num, width, height, radius, shapesLibrary, colorsLibra
     clr = colorsLibrary[ind];
     shapeList.push(new Shape(randint(0, width), randint(0, height), radius, shp, clr));
   }
-  return shapeList;
+  return new Painting(shapeList);
 }
 
 function spaceFitness(painting){
@@ -119,7 +119,7 @@ function twiddle(painting, aggressiveness){
   newPainting = painting.clone();
   shapes = newPainting.shapes;
   for (i=0; i<shapes.length; i++){
-    //eventually make this Gaussian!
+    // TODO(thomas): eventually make this Gaussian!
     shp = shapes[i]
     shp.x += (Math.random()-0.5)*aggressiveness*2;
     shp.y += (Math.random()-0.5)*aggressiveness*2;
@@ -128,8 +128,8 @@ function twiddle(painting, aggressiveness){
   return newPainting;
 }
 
-function main() {
-  var canvas = document.getElementById("a");
+function init() {
+  var canvas = document.getElementById("canvas");
   var ctx = canvas.getContext("2d");
   var IMAGE_WIDTH = canvas.width;
   var IMAGE_HEIGHT = canvas.height;
@@ -139,6 +139,11 @@ function main() {
   var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
   var fitnessArray = [];
   var population = [];
+  var painting = generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary);
+  timer = setInterval(doIteration, 10);
+  painting.draw(ctx);
+  return {canvas:canvas, ctx:ctx, painting:painting};
+}
   /**
    * Generate a population of paintings.
    */
@@ -150,27 +155,19 @@ function main() {
   //     painting.draw(ctx);
   //   }
   // }
+var globals = init();
 
-  var painting = new Painting(generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary));
-  painting.draw(ctx);
-  for(k=0; k<5000; k++){
-    oldShapes = painting.shapes;
-    newPainting = twiddle(painting, 10);
+function doIteration(){
+    newPainting = twiddle(globals.painting, 10);
     //console.log(newPainting.shapes);
     //console.log(avgKernelDensity(newPainting), avgKernelDensity(painting));
     //console.log(avgKernelDensity(newPainting) < avgKernelDensity(painting));
-    if (avgKernelDensity(newPainting) < avgKernelDensity(painting)){
-      console.log(k, avgKernelDensity(newPainting));
-      painting = newPainting;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      painting.draw(ctx);
+    if (avgKernelDensity(newPainting) < avgKernelDensity(globals.painting)){
+      console.log(avgKernelDensity(newPainting));
+      globals.painting = newPainting;
+      globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);
+      globals.painting.draw(globals.ctx);
     }
   }
 
-  // for (i=0; i<20; i++){
-  //   painting = twiddle(painting, 10);
-  //   painting.draw(ctx);
-  // }
-}
-
-main();
+doIteration();
