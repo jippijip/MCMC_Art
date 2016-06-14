@@ -109,12 +109,11 @@ function Painting(shapes){
   }
 
   // colorRepulsion can be negative -> attraction
-  this.targetError = function(colorRepulsion){
+  this.targetError = function(shapesLibrary, colorRepulsion){
     var error = 0;
     error += this.avgKernelError('ALL');
-    var toIterate = [4, 6, 8, 'circle'];
-    for (var i=0; i<toIterate.length; i++){
-      error += colorRepulsion * this.avgKernelError(toIterate[i]);
+    for (var i=0; i<shapesLibrary.length; i++){
+      error += colorRepulsion * this.avgKernelError(shapesLibrary[i]);
     }
     return error;
   }
@@ -152,11 +151,11 @@ function Painting(shapes){
 
 }
 
-function generatePainting(num, width, height, radius, shapesLibrary, colorsLibrary) {
+function generatePainting(num, width, height, radius, SHAPES_LIBRARY, colorsLibrary) {
   var shapeList = []
   for (i = 0; i < num; i++) {
     ind = randint(0, 3);
-    shp = shapesLibrary[ind];
+    shp = SHAPES_LIBRARY[ind];
     clr = colorsLibrary[ind];
     shapeList.push(new Shape(randint(BORDER, width - BORDER), randint(BORDER, height - BORDER),
         Math.random()*2*Math.PI, radius, shp, clr));
@@ -186,19 +185,20 @@ var RADIUS = 18;
 var BORDER = 1.5 * RADIUS;
 var JUMP_PROBABILITY = .2;
 var FLIP_PROBABILITY = .5;
-var COLOR_REPULSION = -0.1
+var COLOR_REPULSION = 5
+var SHAPES_LIBRARY = ['circle', 4, 5, 6];
 
 function init() {
   var canvas = document.getElementById("canvas");
   var ctx = canvas.getContext("2d");
-  var shapesLibrary = ['circle', 4, 6, 8];
   // var colorsLibrary = ['#FF0000', '#0000FF', '#000000', '#FFFF00'];
   var colorsLibrary = ['#D5430A', '#8A130B', '#284D1A', '#183964'];
   // var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC'];
   var fitnessArray = [];
   var population = [];
-  var painting = generatePainting(NUM_SHAPES, canvas.width, canvas.height, RADIUS, shapesLibrary, colorsLibrary);
-  var initialError = painting.targetError(COLOR_REPULSION);
+  var painting = generatePainting(NUM_SHAPES, canvas.width, canvas.height,
+    RADIUS, SHAPES_LIBRARY, colorsLibrary);
+  var initialError = painting.targetError(SHAPES_LIBRARY, COLOR_REPULSION);
   timer1 = setInterval(doManyIterations, 1);
   timer2 = setInterval(showProgress, 500);
   painting.draw(ctx);
@@ -216,7 +216,7 @@ function doIteration(){
   } else {
     newPainting = twiddlePositions(globals.painting, 3);
   }
-  newError = newPainting.targetError(COLOR_REPULSION);
+  newError = newPainting.targetError(SHAPES_LIBRARY, COLOR_REPULSION);
   if (newError <= globals.currentError){
     globals.painting = newPainting;
     globals.currentError = newError;
