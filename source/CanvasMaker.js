@@ -108,11 +108,13 @@ function Painting(shapes){
     return avg;
   }
 
-  this.targetError = function(){
+  // colorRepulsion can be negative -> attraction
+  this.targetError = function(colorRepulsion){
     var error = 0;
-    var toIterate = ['ALL', 4, 6, 8, 'circle'];
+    error += this.avgKernelError('ALL');
+    var toIterate = [4, 6, 8, 'circle'];
     for (var i=0; i<toIterate.length; i++){
-      error += this.avgKernelError(toIterate[i]);
+      error += colorRepulsion * this.avgKernelError(toIterate[i]);
     }
     return error;
   }
@@ -179,11 +181,12 @@ function twiddleShapes(painting){
 
 var NUM_SHAPES = 250;
 var NUM_TRIALS = 100;
-var BETA = 3000;
-var RADIUS = 20;
+var BETA = 5000;
+var RADIUS = 18;
 var BORDER = 1.5 * RADIUS;
 var JUMP_PROBABILITY = .2;
-var FLIP_PROBABILITY = .2;
+var FLIP_PROBABILITY = .5;
+var COLOR_REPULSION = -0.1
 
 function init() {
   var canvas = document.getElementById("canvas");
@@ -195,8 +198,8 @@ function init() {
   var fitnessArray = [];
   var population = [];
   var painting = generatePainting(NUM_SHAPES, canvas.width, canvas.height, RADIUS, shapesLibrary, colorsLibrary);
-  var initialError = painting.targetError();
-  timer1 = setInterval(doIteration, 1);
+  var initialError = painting.targetError(COLOR_REPULSION);
+  timer1 = setInterval(doManyIterations, 1);
   timer2 = setInterval(showProgress, 500);
   painting.draw(ctx);
   return {canvas:canvas, ctx:ctx, painting:painting, currentError:initialError};
@@ -213,7 +216,7 @@ function doIteration(){
   } else {
     newPainting = twiddlePositions(globals.painting, 3);
   }
-  newError = newPainting.targetError();
+  newError = newPainting.targetError(COLOR_REPULSION);
   if (newError <= globals.currentError){
     globals.painting = newPainting;
     globals.currentError = newError;
@@ -226,6 +229,12 @@ function doIteration(){
       globals.painting = newPainting;
       globals.currentError = newError;
     }
+  }
+}
+
+function doManyIterations(){
+  for (var i=0; i<10; i++){
+    doIteration();
   }
 }
 
