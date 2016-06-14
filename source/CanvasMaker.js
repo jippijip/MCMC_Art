@@ -16,25 +16,6 @@ function distanceSquared(a, b) {
   return (a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y);
 }
 
-function avgKernelDensity(painting){
-
-  function singleKernelDensity(reference, set) {
-    var sum = -1;
-    for (j=0; j<set.length; j++) {
-      sum += Math.exp(-distanceSquared(reference, set[j]) / 2000);
-    }
-    return sum;
-  }
-
-  var total = 0;
-  shapes = painting.shapes;
-  for (i=0; i<shapes.length; i++) {
-    total += singleKernelDensity(shapes[i], shapes);
-  }
-  avg = total / shapes.length;
-  return avg;
-}
-
 function Shape(x, y, theta, radius, shape, color) {
   this.x = x;
   this.y = y;
@@ -76,20 +57,74 @@ function Shape(x, y, theta, radius, shape, color) {
 function Painting(shapes){
   this.shapes = shapes;
   this.draw = function(ctx){
-    for (i in this.shapes) {
+    for (var i=0; i<this.shapes.length; i++) {
       var s = this.shapes[i];
       s.draw(ctx);
     }
   }
 
+  this.getSubset = function(shape){
+    subset = [];
+    for (var i=0; i<this.shapes.length; i++){
+      if (this.shapes[i].shape == shape){
+        subset.push(this.shapes[i].clone());
+      }
+    }
+    return subset;
+    console.log(subset);
+  }
+
   this.clone = function(){
     var cloneShapes = [];
-    for (i=0; i<this.shapes.length; i++){
+    for (var i=0; i<this.shapes.length; i++){
       cloneShapes[i] = this.shapes[i].clone();
     }
     clone = new Painting(cloneShapes);
     return clone;
   }
+
+  this.avgKernelDensity = function(shape){
+
+    function singleKernelDensity(reference, set) {
+      var sum = -1;
+      for (j=0; j<set.length; j++) {
+        sum += Math.exp(-distanceSquared(reference, set[j]) / 2000);
+      }
+      return sum;
+    }
+
+    var total = 0;
+
+    if (shape == 'ALL'){
+      shapes = this.shapes;
+    } else {
+      shapes = this.getSubset(shape);
+    }
+    for (i=0; i<shapes.length; i++) {
+      total += singleKernelDensity(shapes[i], shapes);
+    }
+    avg = total / shapes.length;
+    return avg;
+  }
+
+  this.targetDensity = function(){
+    var error = 0;
+    var toIterate = ['ALL', 4, 6, 8, 'circle'];
+    for (var i=0; i<toIterate.length; i++){
+      error += this.avgKernelDensity(toIterate[i]);
+    }
+    return Math.exp(- BETA * error);
+  }
+
+  this.flipShapes = function (i, j){
+    iShape = this.shapes[i].shape;
+    iColor = this.shapes[i].color;
+    this.shapes[i].shape = this.shapes[j].shape;
+    this.shapes[i].color = this.shapes[j].color;
+    this.shapes[j].shape = iShape;
+    this.shapes[j].color = iColor;
+  }
+
 }
 
 function generatePainting(num, width, height, radius, shapesLibrary, colorsLibrary) {
@@ -98,28 +133,15 @@ function generatePainting(num, width, height, radius, shapesLibrary, colorsLibra
     ind = randint(0, 3);
     shp = shapesLibrary[ind];
     clr = colorsLibrary[ind];
-    shapeList.push(new Shape(randint(0, width), randint(0, height),
+    shapeList.push(new Shape(randint(BORDER, width - BORDER), randint(BORDER, height - BORDER),
         Math.random()*2*Math.PI, radius, shp, clr));
   }
   return new Painting(shapeList);
 }
 
-function spaceFitness(painting){
-  shapes = painting.shapes;
-  var sum = 0;
-  for (i=0; i<shapes.length; i++){
-    for (j=i+1; j<shapes.length; j++){
-      sum += distanceSquared(shapes[i], shapes[j]);
-    }
-  }
-  numConnections = shapes.length*(shapes.length-1)/2
-  var avgDist = sum/numConnections;
-  return avgDist;
-}
-
-function twiddle(painting, aggressiveness){
+function twiddlePositions(painting, aggressiveness){
   newPainting = painting.clone();
-  var i = randint(0, shapes.length-1);
+  var i = randint(0, newPainting.shapes.length-1);
   // TODO(thomas): eventually make this Gaussian!
   shp = newPainting.shapes[i];
   var xShift = (Math.random()-0.5)*aggressiveness*2;
@@ -141,11 +163,21 @@ function twiddle(painting, aggressiveness){
   return newPainting;
 }
 
+function twiddleShapes(painting){
+  newPainting = painting.clone();
+  var i  = randint(0, newPainting.shapes.length-1);
+  var j  = randint(0, newPainting.shapes.length-1);
+  newPainting.flipShapes(i, j);
+  return newPainting;
+}
+
+
 var NUM_SHAPES = 100;
 var NUM_TRIALS = 100;
-var BETA = 700;
+var BETA = 400;
 var RADIUS = 30;
 var BORDER = 1.5 * RADIUS;
+var FLIP_PROBABILITY = .2;
 
 function init() {
   var canvas = document.getElementById("canvas");
@@ -155,32 +187,24 @@ function init() {
   var fitnessArray = [];
   var population = [];
   var painting = generatePainting(NUM_SHAPES, canvas.width, canvas.height, RADIUS, shapesLibrary, colorsLibrary);
-  var initialError = avgKernelDensity(painting);
-  var initialDensity = Math.exp(- BETA * initialError);
+  var initialDensity = painting.targetDensity();
   timer1 = setInterval(doIteration, 1);
-  timer2 = setInterval(showProgress, 100);
+  timer2 = setInterval(showProgress, 500);
   painting.draw(ctx);
   return {canvas:canvas, ctx:ctx, painting:painting, currentDensity:initialDensity};
 }
-  /**
-   * Generate a population of paintings.
-   */
-  // for (trial=0; trial<NUM_TRIALS; trial++){
-  //   var painting = new Painting(generatePainting(NUM_SHAPES, IMAGE_WIDTH, IMAGE_HEIGHT, 30, shapesLibrary, colorsLibrary));
-  //   population[trial] = painting;
-  //   fitnessArray[trial] = spaceFitness(painting);
-  //   if (trial==NUM_TRIALS-1) {
-  //     painting.draw(ctx);
-  //   }
-  // }
+
 var globals = init();
 
 function doIteration(){
-  newPainting = twiddle(globals.painting, 10);
-  var newError = avgKernelDensity(newPainting)
-  var newDensity = Math.exp(- BETA * newError);
+  pick = Math.random();
+  if (pick > FLIP_PROBABILITY){
+    newPainting = twiddlePositions(globals.painting, 10);
+  } else{
+    newPainting = twiddleShapes(globals.painting);
+  }
+  newDensity = newPainting.targetDensity();
   if (newDensity >= globals.currentDensity){
-    // console.log(avgKernelDensity(newPainting));
     globals.painting = newPainting;
     globals.currentDensity = newDensity;
     console.log('ACCEPTED', newDensity);
@@ -192,10 +216,10 @@ function doIteration(){
       globals.painting = newPainting;
       globals.currentDensity = newDensity;
     }
-    }
   }
+}
+
 function showProgress(){
     globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);
     globals.painting.draw(globals.ctx);
   }
-doIteration();
