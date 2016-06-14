@@ -83,12 +83,13 @@ function Painting(shapes){
     return clone;
   }
 
-  this.avgKernelDensity = function(shape){
+  this.avgKernelError = function(shape){
 
-    function singleKernelDensity(reference, set) {
+    // Pick a single reference shape, and calculates local density wrpt set
+    function singleKernelError(reference, set) {
       var sum = -1;
       for (j=0; j<set.length; j++) {
-        sum += Math.exp(-distanceSquared(reference, set[j]) / 2000);
+        sum += Math.exp(-distanceSquared(reference, set[j]) / 1000);
       }
       return sum;
     }
@@ -101,19 +102,41 @@ function Painting(shapes){
       shapes = this.getSubset(shape);
     }
     for (i=0; i<shapes.length; i++) {
-      total += singleKernelDensity(shapes[i], shapes);
+      total += singleKernelError(shapes[i], shapes);
     }
     avg = total / shapes.length;
     return avg;
   }
 
-  this.targetDensity = function(){
+  this.targetError = function(){
     var error = 0;
     var toIterate = ['ALL', 4, 6, 8, 'circle'];
     for (var i=0; i<toIterate.length; i++){
-      error += this.avgKernelDensity(toIterate[i]);
+      error += this.avgKernelError(toIterate[i]);
     }
-    return Math.exp(- BETA * error);
+    return error;
+  }
+
+  this.jiggleRandomShape = function(aggressiveness) {
+    var i = randint(0, this.shapes.length-1);
+    // TODO(thomas): eventually make this Gaussian!
+    shp = this.shapes[i];
+    var xShift = (Math.random()-0.5)*aggressiveness*2;
+    var yShift = (Math.random()-0.5)*aggressiveness*2;
+    if (shp.x + xShift < BORDER){
+      shp.x = BORDER;
+    } else if (shp.x + xShift > globals.canvas.width - BORDER){
+      shp.x = globals.canvas.width - BORDER;
+    } else {
+      shp.x += xShift;
+    }
+    if (shp.y + yShift < BORDER){
+      shp.y = BORDER;
+    } else if (shp.y + yShift > globals.canvas.height - BORDER){
+      shp.y = globals.canvas.height - BORDER;
+    } else {
+      shp.y += yShift;
+    }
   }
 
   this.flipShapes = function (i, j){
@@ -141,25 +164,7 @@ function generatePainting(num, width, height, radius, shapesLibrary, colorsLibra
 
 function twiddlePositions(painting, aggressiveness){
   newPainting = painting.clone();
-  var i = randint(0, newPainting.shapes.length-1);
-  // TODO(thomas): eventually make this Gaussian!
-  shp = newPainting.shapes[i];
-  var xShift = (Math.random()-0.5)*aggressiveness*2;
-  var yShift = (Math.random()-0.5)*aggressiveness*2;
-  if (shp.x + xShift < BORDER){
-    shp.x = BORDER;
-  } else if (shp.x + xShift > globals.canvas.width - BORDER){
-    shp.x = globals.canvas.width - BORDER;
-  } else {
-    shp.x += xShift;
-  }
-  if (shp.y + yShift < BORDER){
-    shp.y = BORDER;
-  } else if (shp.y + yShift > globals.canvas.height - BORDER){
-    shp.y = globals.canvas.height - BORDER;
-  } else {
-    shp.y += yShift;
-  }
+  newPainting.jiggleRandomShape(aggressiveness);
   return newPainting;
 }
 
@@ -172,49 +177,54 @@ function twiddleShapes(painting){
 }
 
 
-var NUM_SHAPES = 100;
+var NUM_SHAPES = 250;
 var NUM_TRIALS = 100;
-var BETA = 400;
-var RADIUS = 30;
+var BETA = 3000;
+var RADIUS = 20;
 var BORDER = 1.5 * RADIUS;
+var JUMP_PROBABILITY = .2;
 var FLIP_PROBABILITY = .2;
 
 function init() {
   var canvas = document.getElementById("canvas");
   var ctx = canvas.getContext("2d");
-  var shapesLibrary = ['circle', 4, 6, 8]
-  var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC']
+  var shapesLibrary = ['circle', 4, 6, 8];
+  // var colorsLibrary = ['#FF0000', '#0000FF', '#000000', '#FFFF00'];
+  var colorsLibrary = ['#D5430A', '#8A130B', '#284D1A', '#183964'];
+  // var colorsLibrary = ['#FF6600', '#DD0000', '#00E3BE', '#6600CC'];
   var fitnessArray = [];
   var population = [];
   var painting = generatePainting(NUM_SHAPES, canvas.width, canvas.height, RADIUS, shapesLibrary, colorsLibrary);
-  var initialDensity = painting.targetDensity();
+  var initialError = painting.targetError();
   timer1 = setInterval(doIteration, 1);
   timer2 = setInterval(showProgress, 500);
   painting.draw(ctx);
-  return {canvas:canvas, ctx:ctx, painting:painting, currentDensity:initialDensity};
+  return {canvas:canvas, ctx:ctx, painting:painting, currentError:initialError};
 }
 
 var globals = init();
 
 function doIteration(){
   pick = Math.random();
-  if (pick > FLIP_PROBABILITY){
-    newPainting = twiddlePositions(globals.painting, 10);
-  } else{
+  if (pick <= FLIP_PROBABILITY) {
     newPainting = twiddleShapes(globals.painting);
-  }
-  newDensity = newPainting.targetDensity();
-  if (newDensity >= globals.currentDensity){
-    globals.painting = newPainting;
-    globals.currentDensity = newDensity;
-    console.log('ACCEPTED', newDensity);
+  } else if (pick <= JUMP_PROBABILITY + FLIP_PROBABILITY) {
+    newPainting = twiddlePositions(globals.painting, 100);
   } else {
-    acceptanceRatio = newDensity/globals.currentDensity;
+    newPainting = twiddlePositions(globals.painting, 3);
+  }
+  newError = newPainting.targetError();
+  if (newError <= globals.currentError){
+    globals.painting = newPainting;
+    globals.currentError = newError;
+    console.log('ACCEPTED', newError);
+  } else {
+    acceptanceRatio = Math.exp(BETA * (globals.currentError-newError));
     console.log(acceptanceRatio);
     test = Math.random();
     if (test < acceptanceRatio){
       globals.painting = newPainting;
-      globals.currentDensity = newDensity;
+      globals.currentError = newError;
     }
   }
 }
