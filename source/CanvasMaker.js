@@ -1,3 +1,10 @@
+// TODO:
+// 1. Area (done)
+// 2. Torus (done, but the density is still calculated as if not a torus)
+// 3. Golden ratio ???
+// 4. N^2 distances (only really compute N(N+1)/2, mirror lower diagonal !)
+
+
 function randint(low, high) {
   return Math.floor(Math.random() * (high - low + 1)) + low;
 }
@@ -12,21 +19,40 @@ function regularPolygon(x, y, n, rad, rot) {
   return [xlist, ylist];
 }
 
+function scaleFactor(n){
+  if (typeof n == 'number'){
+    return Math.sqrt(2 * Math.PI / (Math.sin(2 * Math.PI / n) * n));
+  } else if (n == 'circle'){
+    return 1;
+  } else if (typeof n == 'object') {
+    var scaleArray = [];
+    for (var i=0; i<n.length; i++){
+      if (typeof n[i] == 'number'){
+        scaleArray[i] = Math.sqrt(2 * Math.PI / (Math.sin(2 * Math.PI / n[i]) * n[i]));
+      } else if (n[i] == 'circle'){
+        scaleArray[i] = 1;
+      }
+    }
+    return scaleArray;
+  }
+}
+
 function distanceSquared(a, b) {
   return (a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y);
 }
 
-function Shape(x, y, theta, radius, shape, color) {
+function Shape(x, y, theta, radius, radScale, shape, color) {
   this.x = x;
   this.y = y;
   this.theta = theta;
   this.radius = radius;
+  this.radScale = radScale;
   this.shape = shape;
   this.color = color;
   this.points = []
 
   this.clone = function() {
-    clone = new Shape(this.x, this.y, this.theta, this.radius, this.shape, this.color);
+    clone = new Shape(this.x, this.y, this.theta, this.radius, this.radScale, this.shape, this.color);
     return clone;
   }
 
@@ -39,7 +65,7 @@ function Shape(x, y, theta, radius, shape, color) {
       ctx.closePath();
       ctx.fill();
     } else if (typeof this.shape == 'number'){
-      pointList = regularPolygon(this.x, this.y, this.shape, this.radius, this.theta);
+      pointList = regularPolygon(this.x, this.y, this.shape, this.radius * this.radScale, this.theta);
       xlist = pointList[0];
       ylist = pointList[1];
       ctx.beginPath();
@@ -124,29 +150,52 @@ function Painting(shapes){
     shp = this.shapes[i];
     var xShift = (Math.random()-0.5)*aggressiveness*2;
     var yShift = (Math.random()-0.5)*aggressiveness*2;
-    if (shp.x + xShift < BORDER){
-      shp.x = BORDER;
-    } else if (shp.x + xShift > globals.canvas.width - BORDER){
-      shp.x = globals.canvas.width - BORDER;
-    } else {
-      shp.x += xShift;
+    var newX = shp.x + xShift;
+    var newY = shp.y + yShift;
+    if (CANVAS_TYPE == 'BORDERED'){
+      if (newX < BORDER){
+        shp.x = BORDER;
+      } else if (newX > globals.canvas.width - BORDER){
+        shp.x = globals.canvas.width - BORDER;
+      } else {
+        shp.x += xShift;
+      }
+      if (newY < BORDER){
+        shp.y = BORDER;
+      } else if (newY > globals.canvas.height - BORDER){
+        shp.y = globals.canvas.height - BORDER;
+      } else {
+        shp.y += yShift;
+      }
     }
-    if (shp.y + yShift < BORDER){
-      shp.y = BORDER;
-    } else if (shp.y + yShift > globals.canvas.height - BORDER){
-      shp.y = globals.canvas.height - BORDER;
-    } else {
-      shp.y += yShift;
+    else if (CANVAS_TYPE == 'TOROIDAL'){
+      if (newX < 0){
+        shp.x = newX + globals.canvas.width;
+      } else if (newX > globals.canvas.width){
+        shp.x = newX - globals.canvas.width;
+      } else{
+        shp.x += xShift;
+      }
+      if (newY < 0){
+        shp.y = newY + globals.canvas.height;
+      } else if (newY > globals.canvas.height){
+        shp.y = newY - globals.canvas.height;
+      } else{
+        shp.y += yShift;
+      }
     }
   }
 
   this.flipShapes = function (i, j){
     iShape = this.shapes[i].shape;
     iColor = this.shapes[i].color;
+    iScale = this.shapes[i].radScale;
     this.shapes[i].shape = this.shapes[j].shape;
     this.shapes[i].color = this.shapes[j].color;
+    this.shapes[i].radScale = this.shapes[j].radScale;
     this.shapes[j].shape = iShape;
     this.shapes[j].color = iColor;
+    this.shapes[j].radScale = iScale;
   }
 
 }
@@ -157,8 +206,9 @@ function generatePainting(num, width, height, radius, SHAPES_LIBRARY, colorsLibr
     ind = randint(0, 3);
     shp = SHAPES_LIBRARY[ind];
     clr = colorsLibrary[ind];
+    radScale = SCALE_ARRAY[ind];
     shapeList.push(new Shape(randint(BORDER, width - BORDER), randint(BORDER, height - BORDER),
-        Math.random()*2*Math.PI, radius, shp, clr));
+        Math.random()*2*Math.PI, radius, radScale, shp, clr));
   }
   return new Painting(shapeList);
 }
@@ -185,8 +235,12 @@ var RADIUS = 18;
 var BORDER = 1.5 * RADIUS;
 var JUMP_PROBABILITY = .2;
 var FLIP_PROBABILITY = .5;
-var COLOR_REPULSION = 5
+var COLOR_REPULSION = 5;
 var SHAPES_LIBRARY = ['circle', 4, 5, 6];
+var CANVAS_TYPE = 'TOROIDAL';
+var SCALE_ARRAY = scaleFactor(SHAPES_LIBRARY);
+console.log(SHAPES_LIBRARY);
+console.log(SCALE_ARRAY);
 
 function init() {
   var canvas = document.getElementById("canvas");
@@ -220,10 +274,10 @@ function doIteration(){
   if (newError <= globals.currentError){
     globals.painting = newPainting;
     globals.currentError = newError;
-    console.log('ACCEPTED', newError);
+    //console.log('ACCEPTED', newError);
   } else {
     acceptanceRatio = Math.exp(BETA * (globals.currentError-newError));
-    console.log(acceptanceRatio);
+    //console.log(acceptanceRatio);
     test = Math.random();
     if (test < acceptanceRatio){
       globals.painting = newPainting;
